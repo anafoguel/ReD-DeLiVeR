@@ -30,7 +30,7 @@ mKp = par.mKp
 ###############################################################################
 class DecayError(Exception):
     """
-    Simple exception for the 'Model' class.
+    Error for the 'decayChi2' class.
     """
     pass
 
@@ -69,8 +69,8 @@ class decayChi2:
                     "nutau": self.cfunc[11]
                     }
 
-        if (self.cferm["u"](1)- self.cferm["d"](1)) == 0: self.__states = ["leptons","piGamma"]
-        if (self.cferm["u"](1)- self.cferm["d"](1)) != 0: self.__states = ["leptons","piGamma", "pipi"]
+        self.wc2states = ["e_e", "mu_mu", "tau_tau","nue_nue", "numu_numu", "nutau_nutau","piGamma", "KK"]
+        if (self.cferm["u"](1)- self.cferm["d"](1)) != 0: self.wc2states += ["pipi"]
 
         self.__cache = {}        
     
@@ -106,7 +106,7 @@ class decayChi2:
             pname = state.split("_")
 
             if state == "total":
-                wpart = self.normwidth(self.__states, m1, Delta)
+                wpart = self.normwidth(self.wc2states, m1, Delta)
                 
             elif state == "leptons":
                 wpart = self.normwidth(["e_e", "mu_mu", "tau_tau","nue_nue", "numu_numu", "nutau_nutau"], m1, Delta)

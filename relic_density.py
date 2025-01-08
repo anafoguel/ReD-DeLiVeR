@@ -19,7 +19,6 @@ import src.width_inel as winel
 from pathos.multiprocessing import ProcessingPool as Pool
 import warnings
 
- 
     
 class Cosmology:
 
@@ -70,12 +69,15 @@ class CrossSections(Model,Cosmology):
         # define the degrees of freedom
         self.dof = dof
         
-    def set_DM(self,mDM=1.,gQ=1.,gDM=1.):
+    def set_DM(self,mDM=1.,gQ=1.,gDM=1., qD=None):
         self.mDM1 = mDM
         self.mDM2 = mDM*(self.split+1)
         self.mMed = self.mDM1*self.Rrat
         self.gQ = gQ
         self.gDM = gDM
+        self.qD = qD
+        if qD: self.gDM = qD*self.gQ 
+        
         self.alphaDM = self.gDM**2/4./math.pi
 
         #compute widths
@@ -542,7 +544,7 @@ class Boltzmann(CrossSections):
     
     def compRelic(self, mdm, eps, step =100):
         # global boltzZQ
-        self.set_DM(mDM=mdm,gQ=eps,gDM=self.gDM)
+        self.set_DM(mDM=mdm,gQ=eps,gDM=self.gDM, qD= self.qD)
         rds = self.relic_density_chi(xi=10.,xf=100.,step=step)
         return rds
     
@@ -557,13 +559,13 @@ class Boltzmann(CrossSections):
         self.epsarrTT = []
         self.rdsarrTT = []       
         
-        self.start_gq = 1e-3
         initEps = segment[0]*self.start_gq
     
-        path = "txt_targets/countor_%s_%s_del_%s_aD_%s_R_%s_file_%s_seg_%.3f.txt" %(self.modelname,
+        darkS = "qD_%s" %(self.qD) if self.qD else "aD_%s" %(self.alphaDM)
+        path = "txt_targets/countor_%s_%s_del_%s_%s_R_%s_file_%s_seg_%.3f.txt" %(self.modelname,
                                                                             self.DM,
                                                                             self.split,
-                                                                            self.alphaDM,
+                                                                            darkS,
                                                                             self.Rrat,
                                                                             self.ttype,
                                                                             segment[-1])
@@ -577,6 +579,11 @@ class Boltzmann(CrossSections):
             eps = initEps
             rds = self.compRelic(mDMs[i], eps)
             
+            if rds<0.01 or rds>10:
+                initEps = abs(eps*(1 + np.log10(rds/self.omega)/abs(np.log10(min(self.omega,rds)))))
+                eps = initEps
+                rds = self.compRelic(mDMs[i], eps)
+                
             eps2 = initEps*1.1
             rds2 = self.compRelic(mDMs[i], eps2)
                 
@@ -599,18 +606,23 @@ class Boltzmann(CrossSections):
                 prop = rdsNew-self.omega
                 epsF =  abs(self.relicF(self.omega_up)-self.relicF(self.omega_dn))/self.relicF(self.omega_up)
         
-                epsNew = epsNew*(1 +np.sign(prop)*fac*epsF) 
+                print (count,np.sign(prop),fac, epsF,self.relicF(self.omega_up),self.relicF(self.omega_dn))
+                epsNew = abs(epsNew*(1 +np.sign(prop)*fac*epsF))
+                print (epsNew)
                 rdsNew = self.compRelic( mDMs[i], epsNew)
                 
                 parr.append(np.sign(prop))
                 count +=1
                 if count>3:
                     
-                    if parr[-1]*parr[-2] == -1:
+                    if parr[-1]*parr[-2] == -1 or abs(prop)<0.01:
                         fac = 0.5
+                        count = 4
                         
                     if parr[-1]*parr[-2] == 1 and abs(prop)>0.02:
-                        fac = 2*count/4
+                        fac = 3*count/4
+                        if count > 6:
+                            fac = 6*count/4
     
                     continue
                    
@@ -626,8 +638,20 @@ class Boltzmann(CrossSections):
                 
                 initEps = epsNew
     
-    def compute_target(self, mVi = 1e-2, mVf= 10, nmV= 30):# , start_gq = 1e-3, fileN= "scan"):
-        mVs = np.geomspace(mVi, mVf, nmV)    
+    def compute_target(self, mVarr = None , start_gq = 1e-3):# , start_gq = 1e-3, fileN= "scan"):
+        
+        if mVarr:
+            mVi, mVf, nmV = mVarr
+            mVs = np.geomspace(mVi, mVf, nmV) 
+        else:
+            mVs1 = np.geomspace(1e-2, 0.2, 5)
+            mVs2 = np.geomspace(0.2,0.8, 10)
+            mVs3 = np.geomspace(0.8,2, 30)
+            mVs4 = np.geomspace(2,10,10)
+            mVs = np.unique(np.concatenate((mVs1,mVs2,mVs3,mVs4)))
+
+
+        self.start_gq = start_gq
         self.ttype = "total"
         self.run_segment(mVs)
      
@@ -640,11 +664,12 @@ class Boltzmann(CrossSections):
     def merge_runs(self, fileN):
         
         folder = "txt_targets/"
-        output = folder+ "countor_%s_%s_del_%s_aD_%s_R_%s_%s.txt" %(self.modelname,self.DM,self.split,self.alphaDM,self.Rrat,fileN)    
+        darkS = "qD_%s" %(self.qD) if self.qD else "aD_%s" %(self.alphaDM)
+        output = folder+ "countor_%s_%s_del_%s_%s_R_%s_%s.txt" %(self.modelname,self.DM,self.split,darkS,self.Rrat,fileN)    
         all_rows = []
     
         for filename in os.listdir(folder):
-            if filename.split("_")[-3] == "par" and filename.split("_")[-2] == "seg":
+            if filename.endswith("txt") and filename.split("_")[-3] == "par" and filename.split("_")[-2] == "seg":
                 file_path = os.path.join(folder, filename)
                 if os.path.isfile(file_path):
                     with open(file_path, 'r') as infile:
@@ -671,10 +696,22 @@ class Boltzmann(CrossSections):
         
         
     
-    def parallel_tharget(self, mVi = 1e-2, mVf= 10, nmV= 30 , nump = 10, fileN= "target"):
-        mVs = np.geomspace(mVi, mVf, nmV) 
+    def parallel_tharget(self, mVarr = None, start_gq = 1e-3, nump = 10, fileN= "target"):
+        
+        if mVarr:
+            mVi, mVf, nmV = mVarr
+            mVs = np.geomspace(mVi, mVf, nmV) 
+        else:
+            mVs1 = np.geomspace(1e-2, 0.2, 5)
+            mVs2 = np.geomspace(0.2,0.8, 10)
+            mVs3 = np.geomspace(0.8,2, 30)
+            mVs4 = np.geomspace(2,10,10)
+            mVs = np.unique(np.concatenate((mVs1,mVs2,mVs3,mVs4)))
+
+
         massZQ = mVs
         num_processes = nump 
+        self.start_gq = start_gq
         self.ttype = "par"
         self.parallel_run(massZQ, num_processes)
         self.merge_runs(fileN)

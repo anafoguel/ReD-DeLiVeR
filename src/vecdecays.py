@@ -12,6 +12,8 @@ import src.data as data
 import src.utilities as usefunc
 from scipy.interpolate import interp1d
 
+import src.width_inel as winel
+
 import pandas as pd
 
 class Processes():
@@ -361,6 +363,9 @@ class Model(decayZp):
         # create DM folder 
         self.dmfolder = usefunc.create_folder(self.folder+"/DM_model")
 
+        if DMtype=="inelastic":
+            self.widChi2 = winel.decayChi2(coup,Rrat)
+            
     
     def calcwid(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000):
         
@@ -729,3 +734,97 @@ class Model(decayZp):
         return fig     
 
 
+    ### inelastic DM: functions to compute and plot the widths/BRs of the heavier fermion chi2 ###
+    def calcwidChi2(self, gQ, gDM, channels = None, mmin=1e-1 ,mmax=3.0, step=1000, save= False):
+
+        # compute chi2 normalized widths
+        self.calcnormwidChi2(channels, mmin, mmax, step, save)
+
+        self.wchi2 = {key: interp1d(self.DMmasses,interp_func(self.DMmasses)* (gQ*gDM)**2) 
+                      for key, interp_func in self.wchi2N.items()}
+
+
+                                                   
+    def calcnormwidChi2(self, channels = None, mmin=1e-1 ,mmax=3.0, step=1000, save= False):    
+              
+        # create arrays to store the normalized widths
+        self.wchi2N_arr = {}
+        
+        if channels: states = channels
+        else: states = self.widChi2.wc2states
+        
+        # print (states)
+        for chan in states:
+            self.wchi2N_arr[chan] = []       
+
+        # m1/DM masses                    
+        self.DMmasses = np.linspace(mmin, mmax, step)
+
+
+        # check if width files exist
+        self.c2widfile = (self.modfolder+"/%s_chi2_delta_%s_normwid.txt" % (self.modelname, self.split))
+
+        if os.path.isfile(self.c2widfile):
+            print("Using width file...")            
+            wc2df = pd.read_csv(self.c2widfile, sep='\t')
+            wc2dfch = wc2df.drop(wc2df.columns[[0]], axis=1)
+            self.wchi2N_arr = wc2dfch.to_dict(orient='list')                
+            self.DMmasses = wc2df.iloc[:, 0].values
+            
+        
+        else:
+            print("Computing width file...")
+                 
+            for chan in states:
+                wch = []
+                for i in range(len(self.DMmasses)):
+                    width = self.widChi2.width(states= chan, m1=self.DMmasses[i], Delta=self.split, gChi=1, gQ=1)
+                    wch.append(width)
+            
+                self.wchi2N_arr[chan] = wch
+                
+            self.wchi2N_arr["total"] = [sum(elements) for elements in zip(*self.wchi2N_arr.values())]
+                        
+            if save:
+                self.save_data(self.wchi2N_arr, self.DMmasses, filename = "chi2_delta_%s_normwid"  % (self.split))     
+            
+       
+        self.wchi2N = usefunc.interp_dict(self.wchi2N_arr, self.DMmasses)
+        
+
+     
+    def plotNwidChi2(self,xrange=[0.1,2.],yrange=None, name=None):
+        
+        fig, ax = plt.subplots(figsize=(8.5, 5))
+        
+        ax.plot(self.DMmasses,self.wchi2N["total"](self.DMmasses), c='black', lw =1.3, label='total')
+        
+        
+        for chan,wch in self.wchi2N.items():
+            plt.plot(self.DMmasses, self.wchi2N[chan](self.DMmasses), ls= "-",lw=2, label = chan)
+        
+
+        # plt.text(0.2,0.8, " $R=%s$ \n" %(self.Rrat) , transform=ax.transAxes,
+        #          color="0.2", fontsize = 12, bbox=dict(facecolor='white', edgecolor= 'none', alpha=0.5))
+        
+        ###############
+        ax.set_title(self.modelname.replace("_", " "), fontsize=16)
+        plt.xlabel("$m_{1}$ [GeV]",fontsize=14)
+        plt.ylabel("$ \\Gamma \\; (\chi_2 \\to \chi_1 + {\\rm SM})$",fontfamily= 'sans-serif',fontsize=14)
+        ax.legend(title= "$ \\Delta = %s \\, , \\, R=%s$ \n" %(self.split,self.Rrat) ,loc="best", ncol=2)      
+        ax.set_xlim(xrange)
+        if yrange: ax.set_ylim(yrange)
+        plt.yscale("log")
+        plt.minorticks_on()
+        #plt.grid(which='minor', alpha=0.2)
+        plt.grid(which='major', alpha=0.2)
+
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        if name:
+            plotlab = self.modelname.replace(" ","_")+"chi2wid_R_%s" % (self.Rrat)
+            if self.DM == "No": plotlab = plotlab[0:-8]
+            plt.savefig(self.plotfold+'/width_'+plotlab+'_'+name+".pdf")
+        plt.show()
+        plt.close()
+        return fig

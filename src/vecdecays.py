@@ -579,7 +579,7 @@ class Model(decayZp):
         ax.plot(self.masses,self.wtot(self.masses), c='black', lw =1.3, label='total')
         
         plot_params = [('QCD', 'orangered', 'QCD'),
-                       ('neutrinos', 'forestgreen', 'neutrinos'),
+                       ('neutrinos', 'darkgreen', 'neutrinos'),
                        ('chlep', 'dodgerblue', 'charged leptons')]
 
         for key, color, label in plot_params:
@@ -597,7 +597,7 @@ class Model(decayZp):
         ## DM width ##  
         Wtype= None
         if self.DM != "No":
-            Wtype = self.DMlab.replace("_", " ")
+            Wtype = self.DMlab.replace("_", " ").replace("delta", "$\Delta=$")
             couplab = couplab + "\n $g_{DM} = %.1f$" %(self.gDM)
             if W_DM==True: ax.plot(self.masses,self.wdm["DM"](self.masses),c= "darkviolet",lw=1.2,linestyle="dashdot",label= Wtype)
         elif self.DM=="No": Wtype = 'SM'           
@@ -609,7 +609,8 @@ class Model(decayZp):
         ax.set_title(self.modelname.replace("_", " ") + " + " + Wtype, fontsize=16)
         plt.xlabel("$m_{Z_Q}$ [GeV]",fontsize=14)
         plt.ylabel("$\\Gamma \\, (\\; Z_{Q} \\; \\to \\; F )$",fontfamily= 'sans-serif',fontsize=14)
-        ax.legend(loc="best", ncol=2)      
+        #ax.legend(loc="best", ncol=2)      
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         ax.set_xlim(xrange)
         ax.set_ylim(yrange)
         plt.axvline(self.mhad,lw=1.5,c ='0.3',ls='--',label="transition")
@@ -621,7 +622,7 @@ class Model(decayZp):
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         if name:
-            plotlab = self.modelname.replace(" ","_")+"_"+Wtype.replace(" ","_")+"_R_%s_gQ_%s_gDM_%.1f" % (self.Rrat,self.gQ, self.gDM)
+            plotlab = self.modelname.replace(" ","_")+"_"+self.DMlab+"_R_%s_gQ_%s_gDM_%.1f" % (self.Rrat,self.gQ, self.gDM)
             if self.DM == "No": plotlab = plotlab[0:-8]
             plt.savefig(self.plotfold+'/width_'+plotlab+'_'+name+".pdf")
         plt.show()
@@ -634,7 +635,7 @@ class Model(decayZp):
         fig, ax = plt.subplots(figsize=(8.5, 5))
         
         plot_params = [('QCD', 'orangered', 'QCD'),
-                       ('neutrinos', 'forestgreen', 'neutrinos'),
+                       ('neutrinos', 'darkgreen', 'neutrinos'),
                        ('chlep', 'dodgerblue', 'charged leptons')]
 
         for key, color, label in plot_params:
@@ -664,7 +665,7 @@ class Model(decayZp):
         ax.set_title(self.modelname.replace("_", " ") + " + " + Wtype, fontsize=16)
         plt.xlabel("$m_{Z_Q}$ [GeV]",fontsize=14)
         plt.ylabel("BR ($\\; Z_{Q} \\; \\to \\;$ F )",fontfamily= 'sans-serif',fontsize=14)
-        ax.legend(loc= "best", ncol=2)      
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))    
         ax.set_xlim(xrange)
         ax.set_ylim(yrange)
         plt.axvline(self.mhad,lw=1.5,c ='0.3',ls='--',label="transition")
@@ -735,7 +736,7 @@ class Model(decayZp):
 
 
     ### inelastic DM: functions to compute and plot the widths/BRs of the heavier fermion chi2 ###
-    def calcwidChi2(self, gQ, gDM, channels = None, mmin=1e-1 ,mmax=3.0, step=1000, save= False):
+    def calcwidChi2(self, gQ, gDM, channels = None, mmin=1e-1 ,mmax=3.0, step=100, save= False):
 
         # compute chi2 normalized widths
         self.calcnormwidChi2(channels, mmin, mmax, step, save)
@@ -745,7 +746,7 @@ class Model(decayZp):
 
 
                                                    
-    def calcnormwidChi2(self, channels = None, mmin=1e-1 ,mmax=3.0, step=1000, save= False):    
+    def calcnormwidChi2(self, channels = None, mmin=1e-1 ,mmax=3.0, step=100, save= False):    
               
         # create arrays to store the normalized widths
         self.wchi2N_arr = {}
@@ -753,7 +754,6 @@ class Model(decayZp):
         if channels: states = channels
         else: states = self.widChi2.wc2states
         
-        # print (states)
         for chan in states:
             self.wchi2N_arr[chan] = []       
 
@@ -822,7 +822,7 @@ class Model(decayZp):
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         if name:
-            plotlab = self.modelname.replace(" ","_")+"chi2wid_R_%s" % (self.Rrat)
+            plotlab = self.modelname.replace(" ","_")+"_chi2wid_R_%s" % (self.Rrat)
             if self.DM == "No": plotlab = plotlab[0:-8]
             plt.savefig(self.plotfold+'/width_'+plotlab+'_'+name+".pdf")
         plt.show()

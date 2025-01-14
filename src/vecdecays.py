@@ -367,14 +367,14 @@ class Model(decayZp):
             self.widChi2 = winel.decayChi2(coup,Rrat)
             
     
-    def calcwid(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000):
+    def calcwid(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000, marr = None):
         
         # set couplings
         self.gQ = gQ
         self.gDM = gDM
         
         # compute normalized widths
-        self.calcnormwid(mmin,mmax,step)
+        self.calcnormwid(mmin,mmax,step,marr)
 
         # save the interpolated widths 
         wid_dicts = {'wsm': self.wsmN,
@@ -392,7 +392,7 @@ class Model(decayZp):
                               kind='linear', fill_value="extrapolate")
  
         
-    def calcnormwid(self, mmin=1e-3 ,mmax=10.0, step=10000):    
+    def calcnormwid(self, mmin=1e-3 ,mmax=10.0, step=10000, marr = None):    
               
         # create arrays to store the normalized widths
         self.wsmN_arr = {"QCD":[] , "chlep":[], "neutrinos": [] , "total": []}
@@ -419,7 +419,7 @@ class Model(decayZp):
             self.comp_hwid()
             self.save_hwid()
          
-        self.comp_fwid(mmin ,mmax, step)
+        self.comp_fwid(mmin ,mmax, step, marr)
         
         # transform fermion and hadron arrays into interpolated functions
         self.wfermN = usefunc.interp_dict(self.wfermN_arr, self.masses)
@@ -484,9 +484,10 @@ class Model(decayZp):
             sys.stdout.write("processed up to m="+str(round(m,2))+"GeV ("+str(im)+"/"+str(step)+" mass values) in "+str(round(time.time()-start_time,3))+" seconds")
             sys.stdout.flush()
     
-    def comp_fwid(self,mmin=1e-3 ,mmax=10.0, step=10000):
+    def comp_fwid(self,mmin=1e-3 ,mmax=10.0, step=10000, marr = None):
      
-        self.masses = np.linspace(mmin, mmax, step)
+        if marr is not None: self.masses = marr
+        else: self.masses = np.linspace(mmin, mmax, step)
 
         for im in range(0, len(self.masses)):
             
@@ -533,9 +534,9 @@ class Model(decayZp):
                 print ("The function failed to find a intersection mass between the hadronic and the perturbative quark width. Please set by hand the transition mass.")
 
 
-    def calcbr(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000):
+    def calcbr(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000, marr = None):
         
-        self.calcwid(gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000)
+        self.calcwid(gQ, gDM, mmin=mmin ,mmax=mmax, step=step, marr=marr)
 
         br_dicts = {'brsm': self.wsm,
                     'brdm': self.wdm,

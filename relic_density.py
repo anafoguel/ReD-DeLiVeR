@@ -31,7 +31,7 @@ class Cosmology:
         geffs = interp1d(temp, geff, kind='cubic',fill_value="extrapolate")
         return abs(geffs(self.mDM2/x))
     
-    # Lambda factor in Boltzman equation as in my notes reimitz_d.pdf (2.21), Planckmass absorbed in y_eq
+    # Lambda factor defined as (entropy x/H)
     def lambda_factor(self,x):
         return 0.264246*self.mDM2*self.geff_s(x)**0.5*par.mPlanck        
     
@@ -68,11 +68,18 @@ class CrossSections(Model,Cosmology):
 
         # define the degrees of freedom
         self.dof = dof
+        self.xsecDMtype = {"complex scalar":4,"Majorana":2,"Majorana fermion":2,"Dirac":1,"Dirac fermion":1,"inelastic":1,"No":0}
         
-    def set_DM(self,mDM=1.,gQ=1.,gDM=1., qD=None):
+        
+    def set_DM(self,mDM=1.,gQ=1.,gDM=1., mMedF= None, qD=None):
         self.mDM1 = mDM
         self.mDM2 = mDM*(self.split+1)
-        self.mMed = self.mDM1*self.Rrat
+        
+        if mMedF: 
+            self.mMed = mMedF
+            self.Rrat = self.mMed/self.mDM1
+        else: self.mMed = self.mDM1*self.Rrat
+        
         self.gQ = gQ
         self.gDM = gDM
         self.qD = qD
@@ -106,7 +113,7 @@ class CrossSections(Model,Cosmology):
         # kinematics
         fac =  12*math.pi*s**2/self.kallen(s,self.mDM1**2,self.mDM2**2)
 
-        return fac*GammaDM*GammaSM/((s-self.mMed**2)**2+self.mMed**2*GammaVec**2)
+        return self.xsecDMtype[self.DM]*fac*GammaDM*GammaSM/((s-self.mMed**2)**2+self.mMed**2*GammaVec**2)
     
     ### 22 -> 11 (t+u contributions)
     def xsec_22_11(self,s, nferm = 0):
@@ -252,7 +259,7 @@ class Boltzmann(CrossSections):
         
         warnings.filterwarnings("ignore", category= RuntimeWarning)
         
-    def defBEQchi(self, logx, sol):
+    def defBEQ(self, logx, sol):
 
         x = np.exp(logx)
         W = sol
@@ -272,19 +279,21 @@ class Boltzmann(CrossSections):
             pass
         
                
-    def solveBEQchi(self,xi=10.,xf=50.,step=50):
+    def solveBEQ(self,xi=10.,xf=50.):
         #initial conditions
         W0 =  math.log(self.eq_yield(xi*self.mDM1/self.mDM2)+self.eq_yield(xi))
-        Wsol = solve_ivp(self.defBEQchi,[np.log(xi),np.log(xf)], [W0],
+        Wsol = solve_ivp(self.defBEQ,[np.log(xi),np.log(xf)], [W0],
                           method='Radau', vectorized=True,rtol=1e-3,atol=1e-5)
         return Wsol
     
     
-    def relic_density_chi(self,xi=10.,xf=50.,step=50):
-        self.boltzchi = self.solveBEQchi(xi,xf,step)
-        self.relicchi = self.mDM1*np.exp(self.boltzchi.y[0,-1])*par.entropy0/par.rho_c
-        print ('relic = ', self.relicchi ,'for mV=', self.mMed, ' and gQ=', self.gQ)
-        return self.relicchi     
+    def relic_density_dm(self,xi=10.,xf=50.):
+        self.boltzdm = self.solveBEQ(xi,xf)
+        self.boltzdm.x = np.exp(self.boltzdm.t)
+        self.boltzdm.y = np.exp(self.boltzdm.y) if self.DM == "inelastic" else np.exp(self.boltzdm.y)/2
+        self.relicdm = self.mDM1*self.boltzdm.y[0,-1]*par.entropy0/par.rho_c
+        print ('relic = ', self.relicdm ,'for mV=', self.mMed, ' and gQ=', self.gQ)
+        return self.relicdm     
 
     # function to compute interpolated sigmav (to faster computation)
     def compINT(self):
@@ -325,7 +334,7 @@ class Boltzmann(CrossSections):
         self.xv2f1fY_int = interp1d(xarr, xsecv2f1fY, fill_value="extrapolate")
 
 
-    def defBEQ(self, logx, sol):
+    def defBEQidm(self, logx, sol):
                      
         x = np.exp(logx)
         W1,W2 = sol
@@ -365,29 +374,31 @@ class Boltzmann(CrossSections):
         except: pass
         
             
-    def solveBEQ(self,xi=10.,xf=50.,step=50):
+    def solveBEQidm(self,xi=10.,xf=50.):
         # interpolated xsecv
         if self.interpolate: self.compINT()
         #initial conditions
         W0 = [math.log(self.eq_yield(xi*self.mDM1/self.mDM2)),math.log(self.eq_yield(xi))]
-        Wsol = solve_ivp(self.defBEQ,[np.log(xi),np.log(xf)],W0,
+        Wsol = solve_ivp(self.defBEQidm,[np.log(xi),np.log(xf)],W0,
                           method='Radau', vectorized=True,rtol=1e-3,atol=1e-5)
                          
         return Wsol
     
-    def relic_density(self,xi=10.,xf=50.,step=50):            
-        self.boltz = self.solveBEQ(xi,xf,step)
-        self.relic = self.mDM1*np.exp(self.boltz.y[0][-1])*par.entropy0/par.rho_c
-        print ('relic = ', self.relic ,'for mV=', self.mMed, ' and gQ=', self.gQ)
-        return self.relic   
+    def relic_density_idm(self,xi=10.,xf=50.):            
+        self.boltzidm = self.solveBEQidm(xi,xf)
+        self.boltzidm.x = np.exp(self.boltzidm.t)
+        self.boltzidm.y = np.exp(self.boltzidm.y) 
+        self.relicidm = self.mDM1*self.boltzidm.y[0][-1]*par.entropy0/par.rho_c
+        print ('relic = ', self.relicidm ,'for mV=', self.mMed, ' and gQ=', self.gQ)
+        return self.relicidm   
 
     
     def calc_rates(self,fermion= ["e", "nue", "numu", "nutau"], xlim= (1,200,200)):
 
             sol = self.boltz
-            xval = np.exp(sol.t)  
-            W1sol,W2sol = sol.y[0], sol.y[1]
-            Y1sol,Y2sol = np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
+            xval = sol.x # np.exp(sol.t)  
+            #W1sol,W2sol = sol.y[0], sol.y[1]
+            Y1sol,Y2sol = sol.y[0], sol.y[1] #np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
     
             self.Y1sol = interp1d(xval,Y1sol, fill_value="extrapolate")
             self.Y2sol = interp1d(xval,Y2sol, fill_value="extrapolate")       
@@ -458,32 +469,33 @@ class Boltzmann(CrossSections):
         
     
         if ptype in  ['Ychi', 'both']:
-            sol = self.boltzchi
-            xval = np.exp(sol.t)   
-            Wsol = sol.y[0]
-            Ysol = np.exp(np.asarray(Wsol))
+            sol = self.boltzdm
+            xval = sol.x #np.exp(sol.t)   
+            #Wsol = sol.y[0]
+            Ysol = sol.y[0] #np.exp(np.asarray(Wsol))
             ax.plot(xval,Ysol, color = '#0DC6B3', ls= '-.',alpha=0.8,lw=1.5,
                     zorder =0)
             self.Ychi = interp1d(xval, Ysol, fill_value="extrapolate")
                                
             if ptype == 'Ychi':
-                Yeq =  [a + b for a, b in zip(Yeq1, Yeq2)]
+                Yeq =  [a + b for a, b in zip(Yeq1, Yeq2)] if self.DM == "inelastic" else Yeq1
+    
                 ax.plot(xarr,Yeq)
 
-            relic = self.relicchi
+            relic = self.relicdm
     
         if ptype in ['Y1Y2', 'both']:
-            sol = self.boltz
-            xval = np.exp(sol.t)  
-            W1sol,W2sol = sol.y[0], sol.y[1]
-            Y1sol,Y2sol = np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
+            sol = self.boltzidm
+            xval = sol.x #np.exp(sol.t)  
+            #W1sol,W2sol = sol.y[0], sol.y[1]
+            Y1sol,Y2sol = sol.y[0], sol.y[1] #np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
             
             ax.plot(xval,Y1sol, color = colors[1],lw=1.8, label= "$Y_1$", zorder= 10)
             ax.plot(xarr,Yeq1,ls='--', color = colors[0],lw=1.6, label=  "$Y_1^{\, \\rm eq}$",zorder= 9)
             ax.plot(xval,Y2sol, color = colors[3],lw=1.8, label= "$Y_2$",zorder= 8)
             ax.plot(xarr,Yeq2,ls='--', color = colors[2],lw=1.6, label=  "$Y_2^{\, \\rm eq}$",zorder= 7)           
 
-            relic = self.relic
+            relic = self.relicidm
              
         textstr = '\n'.join(( r'$m_1  = %.2f \, {\rm GeV}$' % (self.mDM1, ),
                              r'$ g_Q = $ %s' % (usefunc.sci_not(self.gQ), ),
@@ -542,10 +554,10 @@ class Boltzmann(CrossSections):
     def relicF(self, x):
         return np.exp(self.coeff[1]) * x ** self.coeff[0]
     
-    def compRelic(self, mdm, eps, step =100):
+    def compRelic(self, mdm, eps):
         # global boltzZQ
         self.set_DM(mDM=mdm,gQ=eps,gDM=self.gDM, qD= self.qD)
-        rds = self.relic_density_chi(xi=10.,xf=100.,step=step)
+        rds = self.relic_density_dm(xi=10.,xf=100.)
         return rds
     
     

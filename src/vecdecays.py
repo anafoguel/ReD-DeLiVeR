@@ -503,7 +503,8 @@ class Model(decayZp):
             # quarks
             norm = self.GammaVff(1,1,m,1,par.mlep_[1])
             qwidth = self.RInclusive(m)*norm
-            self.wfermN_arr["quarks"].append(qwidth)
+            topwidth = self.normwidth("t_t", m)
+            self.wfermN_arr["quarks"].append(qwidth+topwidth)
 
             # DM
             widdm =  0
@@ -536,7 +537,7 @@ class Model(decayZp):
 
     def calcbr(self, gQ, gDM, mmin=1e-3 ,mmax=10.0, step=10000, marr = None):
         
-        self.calcwid(gQ, gDM, mmin=mmin ,mmax=mmax, step=step, marr=marr)
+        self.calcwid(gQ, gDM, mmin ,mmax, step, marr)
 
         br_dicts = {'brsm': self.wsm,
                     'brdm': self.wdm,

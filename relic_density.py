@@ -465,7 +465,7 @@ class Boltzmann(CrossSections):
 
     
         
-    def plot_FO(self, xlim = (1,200), ylim = (1e-16,1e-1), ptype = "Y1Y2", name=None):
+    def plot_FO(self, xlim = (1,200), ylim = (1e-16,1e-1), ptype = "Ychi", name=None):
         
         if ptype not in ['Y1Y2', 'Ychi', 'both']:
             raise ValueError("choice must be 'Y1Y2', 'Ychi', or 'both'")
@@ -534,7 +534,7 @@ class Boltzmann(CrossSections):
 
         if name:
             relicfold = usefunc.create_folder(self.modfolder+'/relic')
-            self.plotlab = self.modelname.replace(" ","_")+"_"+self.DMlab+"_R_%s_gQ_%s_aDM_%.1f" % (self.Rrat,self.gQ, self.alphaDM)
+            self.plotlab = self.modelname.replace(" ","_")+"_"+self.DMlab+"_R_%s_gQ_%s_aDM_%.2f" % (self.Rrat,self.gQ, self.alphaDM)
 
             plt.savefig(relicfold+'/fo_curve_'+self.plotlab+'_'+name+".pdf", bbox_inches = "tight")
     
@@ -688,7 +688,7 @@ class Boltzmann(CrossSections):
     def merge_runs(self, fileN):
         
         folder = "txt_targets/"
-        darkS = "qD_%s" %(self.qD) if self.qD else "aD_%s" %(self.alphaDM)
+        darkS = "qD_%s" %(self.qD) if self.qD else "aD_%.2f" %(self.alphaDM)
         output = folder+ "countor_%s_%s_del_%s_%s_R_%s_%s.txt" %(self.modelname,self.DM,self.split,darkS,self.Rrat,fileN)    
         all_rows = []
     

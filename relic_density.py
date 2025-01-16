@@ -68,22 +68,28 @@ class CrossSections(Model,Cosmology):
 
         # define the degrees of freedom
         self.dof = dof
+        self.Rval = Rrat
         self.xsecDMtype = {"complex scalar":4,"Majorana":2,"Majorana fermion":2,"Dirac":1,"Dirac fermion":1,"inelastic":1,"No":0}
         
         
-    def set_DM(self,mDM=1.,gQ=1.,gDM=1., mMedF= None, qD=None):
+    def set_DM(self,mDM=1.,gQ=1.,gDM=1., Rrat=None, mMedF= None, qD=None):
         self.mDM1 = mDM
         self.mDM2 = mDM*(self.split+1)
+        
+        self.mMed = self.mDM1*self.Rrat
         
         if mMedF: 
             self.mMed = mMedF
             self.Rrat = self.mMed/self.mDM1
-        else: self.mMed = self.mDM1*self.Rrat
+        else: 
+            self.Rrat = self.Rval if Rrat is None else Rrat
+            self.mMed = self.mDM1*self.Rrat
+            
         
         self.gQ = gQ
-        self.gDM = gDM
         self.qD = qD
         if qD: self.gDM = qD*self.gQ 
+        else: self.gDM = gDM
         
         self.alphaDM = self.gDM**2/4./math.pi
 
@@ -251,7 +257,7 @@ class Boltzmann(CrossSections):
         # inhert variables from CrossSections class
         super().__init__(name, coup, DMtype, split, Rrat, mhad, dof)
         
-        self.set_DM(mDM, gQ=1., gDM=1)
+        self.set_DM(mDM, gQ=gQ, gDM=gDM)
         
         ## parameter that controls if the Boltzmann equation will be computed with 
         ## interpolation of the thermal average xsecs
@@ -395,10 +401,18 @@ class Boltzmann(CrossSections):
     
     def calc_rates(self,fermion= ["e", "nue", "numu", "nutau"], xlim= (1,200,200)):
 
-            sol = self.boltz
-            xval = sol.x # np.exp(sol.t)  
-            #W1sol,W2sol = sol.y[0], sol.y[1]
-            Y1sol,Y2sol = sol.y[0], sol.y[1] #np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
+            if self.DM == "inelastic":
+                try:
+                    sol = self.boltzidm
+                    Y1sol,Y2sol = sol.y[0], sol.y[1] 
+                except:
+                    sol = self.boltzdm
+                    Y1sol,Y2sol = sol.y[0], sol.y[0] 
+            else:
+                sol = self.boltzdm
+                Y1sol,Y2sol = sol.y[0], sol.y[0] 
+                
+            xval = sol.x 
     
             self.Y1sol = interp1d(xval,Y1sol, fill_value="extrapolate")
             self.Y2sol = interp1d(xval,Y2sol, fill_value="extrapolate")       
@@ -470,9 +484,8 @@ class Boltzmann(CrossSections):
     
         if ptype in  ['Ychi', 'both']:
             sol = self.boltzdm
-            xval = sol.x #np.exp(sol.t)   
-            #Wsol = sol.y[0]
-            Ysol = sol.y[0] #np.exp(np.asarray(Wsol))
+            xval = sol.x 
+            Ysol = sol.y[0] 
             ax.plot(xval,Ysol, color = '#0DC6B3', ls= '-.',alpha=0.8,lw=1.5,
                     zorder =0)
             self.Ychi = interp1d(xval, Ysol, fill_value="extrapolate")
@@ -486,9 +499,8 @@ class Boltzmann(CrossSections):
     
         if ptype in ['Y1Y2', 'both']:
             sol = self.boltzidm
-            xval = sol.x #np.exp(sol.t)  
-            #W1sol,W2sol = sol.y[0], sol.y[1]
-            Y1sol,Y2sol = sol.y[0], sol.y[1] #np.exp(np.asarray(W1sol)), np.exp(np.asarray(W2sol))
+            xval = sol.x 
+            Y1sol,Y2sol = sol.y[0], sol.y[1]
             
             ax.plot(xval,Y1sol, color = colors[1],lw=1.8, label= "$Y_1$", zorder= 10)
             ax.plot(xarr,Yeq1,ls='--', color = colors[0],lw=1.6, label=  "$Y_1^{\, \\rm eq}$",zorder= 9)

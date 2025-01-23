@@ -274,7 +274,8 @@ class Boltzmann(CrossSections):
         Weq =  np.log(eq_yield_chi)
         
         lamb =  self.lambda_factor(x)
-        xsecv_12ff = self.xsecv22(x, self.xsec, self.mDM1, self.mDM2)
+        idf = 2 if self.DM == "Majorana" else 1
+        xsecv_12ff = self.xsecv22(x, self.xsec, self.mDM1, self.mDM2, idfac=idf)
         fac = self.nequil(x, self.mDM1, 2)*self.nequil(x, self.mDM2, 2)/(self.nequil(x, self.mDM1, 2)+self.nequil(x, self.mDM2, 2))**2
         
         try:
@@ -283,8 +284,9 @@ class Boltzmann(CrossSections):
             return np.array([dWdlogx])
         except:
             pass
-        
-               
+
+
+              
     def solveBEQ(self,xi=10.,xf=50.):
         #initial conditions
         W0 =  math.log(self.eq_yield(xi*self.mDM1/self.mDM2)+self.eq_yield(xi))
@@ -292,7 +294,7 @@ class Boltzmann(CrossSections):
                           method='Radau', vectorized=True,rtol=1e-3,atol=1e-5)
         return Wsol
     
-    
+
     def relic_density_dm(self,xi=10.,xf=50.):
         self.boltzdm = self.solveBEQ(xi,xf)
         self.boltzdm.x = np.exp(self.boltzdm.t)
@@ -426,8 +428,8 @@ class Boltzmann(CrossSections):
             xarr = np.geomspace(xlim[0],xlim[1],xlim[2])
             
             for x in xarr:
-                neq2 = self.nequil(x, self.mDM2, 2)
-                neq1 =  self.nequil(x, self.mDM1, 2)
+                neq2 = self.nequil(x, self.mDM2, self.dof)
+                neq1 =  self.nequil(x, self.mDM1, self.dof)
                 Hub = self.Hubble(x)
       
                 n2val =  self.Y2sol(x)*self.entropyS(self.mDM2/x)
@@ -720,7 +722,7 @@ class Boltzmann(CrossSections):
         
         
     
-    def parallel_tharget(self, mVarr = None, start_gq = 1e-3, nump = 10, fileN= "target"):
+    def parallel_target(self, mVarr = None, start_gq = 1e-3, nump = 10, fileN= "target"):
         
         if mVarr:
             mVi, mVf, nmV = mVarr

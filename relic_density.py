@@ -209,8 +209,8 @@ class CrossSections(Model,Cosmology):
                 rate = self.rateKIN(x,ferm=key)
                 xsecvY +=  rate/self.entropyS(self.mDM2/x)
                 
-        # no couplings w/neutrinos or electron (B mdoel for example)
-        # factor 3 = colors -> one facor for xsec and another for nf
+        # no couplings w/neutrinos or electron (B model for example)
+        # factor 3 = colors -> one factor for xsec and another for nf
         if  xsecvY == 0:
             rateu = self.rateKIN(x,ferm="u")
             xsecvY += 3*3*rateu/self.entropyS(self.mDM2/x)
@@ -274,12 +274,13 @@ class Boltzmann(CrossSections):
         Weq =  np.log(eq_yield_chi)
         
         lamb =  self.lambda_factor(x)
-        idf = 2 if self.DM == "Majorana" else 1
-        xsecv_12ff = self.xsecv22(x, self.xsec, self.mDM1, self.mDM2, idfac=idf)
+
+        xsecv_12ff = self.xsecv22(x, self.xsec, self.mDM1, self.mDM2, idfac=1)
         fac = self.nequil(x, self.mDM1, 2)*self.nequil(x, self.mDM2, 2)/(self.nequil(x, self.mDM1, 2)+self.nequil(x, self.mDM2, 2))**2
-        
+        extrafac = 0.5 if self.DM == "complex scalar" or self.DM == "Dirac" or self.DM == "Dirac fermion" else 1
+
         try:
-            p1 = -2*(lamb*xsecv_12ff/x)*fac*(np.exp(2*W[0])-np.exp(2*Weq))
+            p1 = -2*(lamb*extrafac*xsecv_12ff/x)*fac*(np.exp(2*W[0])-np.exp(2*Weq))
             dWdlogx = np.exp(-W[0])*(p1)
             return np.array([dWdlogx])
         except:
@@ -294,7 +295,7 @@ class Boltzmann(CrossSections):
                           method='Radau', vectorized=True,rtol=1e-3,atol=1e-5)
         return Wsol
     
-
+    
     def relic_density_dm(self,xi=10.,xf=50.):
         self.boltzdm = self.solveBEQ(xi,xf)
         self.boltzdm.x = np.exp(self.boltzdm.t)
@@ -521,7 +522,7 @@ class Boltzmann(CrossSections):
                      bbox=dict(boxstyle='round,pad=0.5', fc='white', alpha=0.5, edgecolor='none'))
 
         if ptype in ['Ychi', 'both']: ax.plot(0,0, color = '#0DC6B3', ls= '-.',alpha=0.8,lw=1.5,label=  "$Y^{\, \\rm eff}$", zorder =-10)
-        plt.legend(ncol=3,loc= "best",fontsize=12)
+        plt.legend(ncol=3,loc= "best",fontsize=12)    
         ax.set_ylim(ylim) 
         ax.set_xlim(xlim) 
         plt.yscale("log")
@@ -632,9 +633,9 @@ class Boltzmann(CrossSections):
                 prop = rdsNew-self.omega
                 epsF =  abs(self.relicF(self.omega_up)-self.relicF(self.omega_dn))/self.relicF(self.omega_up)
         
-                print (count,np.sign(prop),fac, epsF,self.relicF(self.omega_up),self.relicF(self.omega_dn))
+                #print (count,np.sign(prop),fac, epsF,self.relicF(self.omega_up),self.relicF(self.omega_dn))
                 epsNew = abs(epsNew*(1 +np.sign(prop)*fac*epsF))
-                print (epsNew)
+                #print (epsNew)
                 rdsNew = self.compRelic( mDMs[i], epsNew)
                 
                 parr.append(np.sign(prop))
